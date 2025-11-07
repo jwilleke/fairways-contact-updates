@@ -1,6 +1,9 @@
 # clasp
 .clasprc.json
 
+# Claude
+.claude/
+
 # Node
 node_modules/
 package-lock.json
@@ -14,3 +17,6 @@ Thumbs.db
 .idea/
 *.swp
 *.swo
+
+# Logs
+*.log

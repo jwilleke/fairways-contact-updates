@@ -1,70 +1,356 @@
-# Readme
+# Fairways Contact Updates
 
-When someone filles out the form that feeds into this sheet
-https://docs.google.com/spreadsheets/d/1RpIyxcpdKETP5BCpc8K6znlhqg82cmACZKxdqnILqSM/edit?gid=873697025#gid=873697025
+Google Apps Script system for managing contact information updates with an approval workflow. This system automatically processes form submissions, sends approval emails to administrators, and updates a master directory upon approval.
 
-we wan to send an email to fairwayscondos-administrator@googlegroups.com
- With any new data and if any of them approve it
+## Features
 
-Update the appropiart filed in
+- 🔄 **Automatic Form Processing** - Monitors Google Form submissions
+- 📧 **Email Notifications** - Sends approval requests to administrators
+- ✅ **Approval Workflow** - One-click approve/reject from email
+- 🔍 **Smart Matching** - Finds existing records by Email-1 or Name
+- 📊 **Changes Table** - Shows exactly what will change before approval
+- 🔄 **UPDATE or ADD** - Automatically updates existing records or adds new ones
+- 🧪 **TEST MODE** - Safe testing without affecting production data
+- 🗺️ **Field Mapping** - Maps 22+ fields between forms and master sheet
 
-this sheet.
+## System Architecture
 
-https://docs.google.com/spreadsheets/d/1oygR4binYLEgk6ctm_wuxOfiGAHjepuw35SntwIIdcc/edit?gid=0#gid=0
+```
+Google Form
+    ↓
+Contact Information (Responses) Sheet
+    ↓
+Apps Script Trigger
+    ↓
+Email to Administrators
+    ↓
+[APPROVE] or [REJECT]
+    ↓
+Master Directory Sheet
+```
 
+## Quick Start
 
-I see Unterminated template literal error in Code.js locally\
-  But google appsscript seems happy.\
+### Prerequisites
 
+- Google Account with access to:
+  - Google Forms
+  - Google Sheets
+  - Google Apps Script
+- Node.js and npm (for clasp CLI)
+- `clasp` installed globally: `npm install -g @google/clasp`
 
-I created Test Sheet (DONOTUSE-Shared-Fairways-Directory)
-https://docs.google.com/spreadsheets/d/1zCbPbvP_hSS4ye02v8olIAYX3Rpbj1PTIPjuop4n0L8/edit?gid=0#gid=0
+### Installation
 
-Can we create a test function where a rown number fromt he spreadsheet is entered and we send the email but do not update DONOTUSE-Shared-Fairways-Directory
-  So we do some tests.
+1. **Clone the repository:**
+   ```bash
+   git clone https://github.com/jwilleke/fairways-contact-updates.git
+   cd fairways-contact-updates
+   ```
 
-And of course we will need a mapping table as some of the fileds do not match.\
+2. **Login to clasp:**
+   ```bash
+   clasp login
+   ```
 
-And if the email address does not exist for that address make it stand out that we are adding an entry.\
+3. **Update configuration:**
 
-   
+   Edit `contactUpdates.js` and update the CONFIG section:
+   ```javascript
+   const CONFIG = {
+     TEST_MODE: true,  // Start in test mode
+     adminEmail: 'your-admin@email.com',
+     masterSheetId: 'YOUR_MASTER_SHEET_ID',
+     testMasterSheetId: 'YOUR_TEST_SHEET_ID',
+     formResponsesSheetId: 'YOUR_FORM_RESPONSES_SHEET_ID'
+   };
+   ```
 
-Test Sheet (DONOTUSE-Shared-Fairways-Directory)
-https://docs.google.com/spreadsheets/d/1zCbPbvP_hSS4ye02v8olIAYX3Rpbj1PTIPjuop4n0L8/edit?gid=0#gid=0
+4. **Push to Google Apps Script:**
+   ```bash
+   clasp push
+   ```
 
-## Mapping table
+5. **Deploy as Web App:**
+   - Open the script in Apps Script editor
+   - Click Deploy → New deployment
+   - Select "Web app" type
+   - Set "Execute as" to "Me"
+   - Set "Who has access" to "Anyone"
+   - Click Deploy
 
-| Contact Information - Responses |Shared-Fairways-Directory | Description |
-| ---- | ---- | ---- 
-| Unit Address | (concatenante ST # ST Name ST Type) |
-| Phone number | Home Phone
-| First Name | First Name
-| Last Name | Last Name
-| Business Phone | Business Phone
-| Business Addresses | Business Addresses
-| Manager | Unit Manager
-| Occupant Email Address | Email-1 
-| Occupancy First Date | Date Moved In
-| Mailing Address | Mailing Address
-| Other Phone Number | Cell Phone
-| Emergency Contact Name | Emergency Contact Name
-| Emergency Contact Phone | Emergency Contact Phone
-| Emergency Contact Email | Emergency Contact Email
-| Emergency Contact Relationship | Emergency Contact Relationship
-| Emergency Contact Address | Emergency Contact ST Address
-| Alternate Home Address | Alternate Home Address
-| Alternate Home Phone | Alternate Home Phone
-| Are you Working | Working?
-| Do you have a Alternate Home | Alternate Home?
-| Any other Contact Information | Other Contact Information
+6. **Set up Form Trigger:**
+   - Run the `setupTrigger()` function once in Apps Script
+   - This creates an automatic trigger for form submissions
 
-## Locating records
+## Configuration
 
-Each row in Shared-Fairways-Directory has a "Parcel" column. This is a unique ID for each unit.
+### TEST_MODE Flag
 
-Each "Parcel" may have more than one occupant or owner
-Each "Parcel" MUST have the same "Address"
+Control whether updates go to test or production:
 
-So we can locate all the occupnats for a unit by looking up the Address and locating the "Parcel"
-We can Identity the proper personm by by Email-1 or First Name and  Last Name
-If not found by Email-1 or First Name and  Last Name, assume it is a new row.
+```javascript
+const CONFIG = {
+  TEST_MODE: true,  // true = test, false = production
+  // ...
+}
+```
+
+**TEST MODE (recommended for initial setup):**
+- Updates go to test master sheet
+- Email subject: `[TEST CONTACT UPDATE] ...`
+- Safe to test freely
+
+**PRODUCTION MODE:**
+- Updates go to production master sheet
+- Email subject: `[CONTACT UPDATE] ...`
+- Live system
+
+### Field Mapping
+
+The system maps 22+ fields between the form and master sheet. Edit `FIELD_MAPPING` in `contactUpdates.js` to customize:
+
+```javascript
+const FIELD_MAPPING = {
+  // Form Field -> Master Sheet Field
+  'Occupant Email Address': 'Email-1',
+  'Phone number': 'Home Phone',
+  'Unit Address': 'Address',
+  // ... 19 more fields
+};
+```
+
+See [FIELD_MAPPING_UPDATE.md](FIELD_MAPPING_UPDATE.md) for complete mapping.
+
+## Usage
+
+### For Administrators
+
+1. **Receive Email:**
+   - Subject: `[TEST CONTACT UPDATE]` or `[CONTACT UPDATE]`
+   - Contains form submission details
+   - Shows changes table (for existing records)
+
+2. **Review Request:**
+   - Check submission details
+   - Review changes (old value → new value)
+   - Note if it's a NEW entry or UPDATE
+
+3. **Take Action:**
+   - Click **APPROVE** to accept changes
+   - Click **REJECT** to decline
+
+4. **Confirmation:**
+   - See confirmation page
+   - Master sheet is updated automatically (if approved)
+
+### For Developers
+
+#### Test a Specific Form Response:
+
+```javascript
+testRowEmail(93)  // Test row 93 from form responses
+```
+
+This will:
+- Read the form response
+- Look up matching record
+- Calculate changes
+- Send test approval email
+- Update test master sheet if approved
+
+#### Check Logs:
+
+After approval, check execution logs:
+```
+Using master sheet: TEST (ID: ...)
+Record found by Email-1 at row 47
+Calculated 3 changes
+Successfully updated 3 fields in row 47
+```
+
+## Record Matching Logic
+
+The system uses a two-step matching process:
+
+1. **Primary Match:** Email-1 address (case-insensitive)
+2. **Fallback Match:** First Name + Last Name (both must match)
+3. **No Match:** Creates new entry
+
+See [README.md](README.md) "Locating records" section for details.
+
+## Documentation
+
+- **[SETUP.md](SETUP.md)** - Detailed setup instructions
+- **[TEST_MODE.md](TEST_MODE.md)** - TEST_MODE configuration guide
+- **[TESTING.md](TESTING.md)** - Testing procedures
+- **[TEST_WORKFLOW_UPDATED.md](TEST_WORKFLOW_UPDATED.md)** - Complete test workflow
+- **[FIELD_MAPPING_UPDATE.md](FIELD_MAPPING_UPDATE.md)** - Field mapping reference
+- **[UPDATE_LOGIC.md](UPDATE_LOGIC.md)** - How UPDATE vs ADD works
+
+## Project Structure
+
+```
+fairways-contact-updates/
+├── contactUpdates.js          # Main Apps Script code
+├── appsscript.json           # Apps Script manifest
+├── .clasp.json               # Clasp configuration
+├── .claspignore              # Files to ignore when pushing
+├── README.md                 # Original project README
+├── SETUP.md                  # Setup instructions
+├── TEST_MODE.md              # TEST_MODE documentation
+├── TESTING.md                # Testing guide
+├── FIELD_MAPPING_UPDATE.md   # Field mapping reference
+├── UPDATE_LOGIC.md           # UPDATE logic explanation
+└── TEST_WORKFLOW_UPDATED.md  # Test workflow details
+```
+
+## Key Functions
+
+### Production Functions
+
+- `onFormSubmit(e)` - Triggered when form is submitted
+- `sendApprovalEmail(formData, rowNumber, sheetId)` - Sends approval request
+- `doGet(e)` - Handles approve/reject clicks from email
+- `addToMasterSheet(formData)` - Updates or adds to master sheet
+- `locateRecordInMaster(formData)` - Finds matching records
+- `updateMasterSheetRow(sheet, row, newData, existingData)` - Updates existing record
+
+### Testing Functions
+
+- `testRowEmail(rowNumber)` - Test a specific form response row
+- `locateRecordInTestMaster(formData)` - Finds records in test sheet
+- `calculateChanges(newData, existingData)` - Calculates field changes
+- `sendTestApprovalEmail(formData, rowNumber, sheetId)` - Sends test email
+
+### Utility Functions
+
+- `getMasterSheetId()` - Returns correct sheet ID based on TEST_MODE
+- `mapFieldsToMaster(formData)` - Maps form fields to master fields
+- `setupTrigger()` - Creates form submission trigger
+
+## Email Format
+
+### Subject Lines
+
+- **Test Mode:** `[TEST CONTACT UPDATE] New Request - Action Required`
+- **Production:** `[CONTACT UPDATE] New Request - Action Required`
+
+### Email Contents
+
+- 🧪 TEST MODE banner (if applicable)
+- 📝 NEW ENTRY or EXISTING ENTRY indicator
+- 📋 Changes table (for updates)
+- 📄 All form data
+- ✅ APPROVE button
+- ❌ REJECT button
+
+## Workflow Examples
+
+### Example 1: Update Existing Record
+
+```
+Form submitted with updated phone number
+    ↓
+Email sent: [TEST CONTACT UPDATE] ...
+Shows: "EXISTING ENTRY - Row 47 - Matched by Email-1"
+Changes: Home Phone: "555-1234" → "555-5678"
+    ↓
+Admin clicks APPROVE
+    ↓
+Row 47 in test master sheet updated
+Only changed fields are modified
+```
+
+### Example 2: New Entry
+
+```
+Form submitted with new contact
+    ↓
+Email sent: [TEST CONTACT UPDATE] ...
+Shows: "NEW ENTRY - Record not found"
+All form fields listed
+    ↓
+Admin clicks APPROVE
+    ↓
+New row added to test master sheet
+```
+
+## Security & Permissions
+
+### Required OAuth Scopes
+
+```json
+{
+  "oauthScopes": [
+    "https://www.googleapis.com/auth/script.container.ui",
+    "https://www.googleapis.com/auth/spreadsheets",
+    "https://www.googleapis.com/auth/userinfo.email",
+    "https://www.googleapis.com/auth/script.send_mail"
+  ]
+}
+```
+
+### Web App Permissions
+
+- **Execute as:** Me (the script owner)
+- **Who has access:** Anyone (for email approval links to work)
+
+## Troubleshooting
+
+### Email not sending
+
+- Check OAuth scopes are authorized
+- Verify `adminEmail` in CONFIG
+- Check execution logs for errors
+
+### Approval links not working
+
+- Ensure web app is deployed
+- Check "Who has access" is set to "Anyone"
+- Verify script URL in email is correct
+
+### Wrong sheet being updated
+
+- Check `TEST_MODE` flag
+- Verify sheet IDs in CONFIG
+- Check execution logs for "Using master sheet: ..."
+
+### Field not mapping correctly
+
+- Check `FIELD_MAPPING` constant
+- Verify exact column names in both sheets
+- Look for typos or extra spaces
+
+## Contributing
+
+Contributions are welcome! Please:
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Test thoroughly
+5. Submit a pull request
+
+## License
+
+This project is provided as-is for use by Fairways Condos.
+
+## Support
+
+For issues or questions:
+- Check the documentation files
+- Review execution logs in Apps Script
+- Create an issue on GitHub
+
+## Version History
+
+### v1.0.0 - Initial Release
+- Form submission monitoring
+- Email approval workflow
+- Smart record matching
+- UPDATE/ADD logic
+- Field mapping (22 fields)
+- TEST_MODE flag
+- Changes table
+- Comprehensive documentation
