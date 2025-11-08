@@ -15,7 +15,7 @@ Google Apps Script system for managing contact information updates with an appro
 
 ## System Architecture
 
-```
+```text
 Google Form
     ↓
 Contact Information (Responses) Sheet
@@ -43,12 +43,14 @@ Master Directory Sheet
 ### Installation
 
 1. **Clone the repository:**
+
    ```bash
    git clone https://github.com/jwilleke/fairways-contact-updates.git
    cd fairways-contact-updates
    ```
 
 2. **Login to clasp:**
+
    ```bash
    clasp login
    ```
@@ -56,6 +58,7 @@ Master Directory Sheet
 3. **Update configuration:**
 
    Edit `contactUpdates.js` and update the CONFIG section:
+
    ```javascript
    const CONFIG = {
      TEST_MODE: true,  // Start in test mode
@@ -67,6 +70,7 @@ Master Directory Sheet
    ```
 
 4. **Push to Google Apps Script:**
+
    ```bash
    clasp push
    ```
@@ -97,11 +101,13 @@ const CONFIG = {
 ```
 
 **TEST MODE (recommended for initial setup):**
+
 - Updates go to test master sheet
 - Email subject: `[TEST CONTACT UPDATE] ...`
 - Safe to test freely
 
 **PRODUCTION MODE:**
+
 - Updates go to production master sheet
 - Email subject: `[CONTACT UPDATE] ...`
 - Live system
@@ -146,23 +152,25 @@ See [FIELD_MAPPING_UPDATE.md](FIELD_MAPPING_UPDATE.md) for complete mapping.
 
 ### For Developers
 
-#### Test a Specific Form Response:
+#### Test a Specific Form Response
 
 ```javascript
 testRowEmail(93)  // Test row 93 from form responses
 ```
 
 This will:
+
 - Read the form response
 - Look up matching record
 - Calculate changes
 - Send test approval email
 - Update test master sheet if approved
 
-#### Check Logs:
+#### Check Logs
 
 After approval, check execution logs:
-```
+
+```text
 Using master sheet: TEST (ID: ...)
 Record found by Email-1 at row 47
 Calculated 3 changes
@@ -190,7 +198,7 @@ See [README.md](README.md) "Locating records" section for details.
 
 ## Project Structure
 
-```
+```text
 fairways-contact-updates/
 ├── contactUpdates.js          # Main Apps Script code
 ├── appsscript.json           # Apps Script manifest
@@ -249,7 +257,7 @@ fairways-contact-updates/
 
 ### Example 1: Update Existing Record
 
-```
+```text
 Form submitted with updated phone number
     ↓
 Email sent: [TEST CONTACT UPDATE] ...
@@ -264,7 +272,7 @@ Only changed fields are modified
 
 ### Example 2: New Entry
 
-```
+```text
 Form submitted with new contact
     ↓
 Email sent: [TEST CONTACT UPDATE] ...
@@ -339,6 +347,7 @@ This project is provided as-is for use by Fairways Condos.
 ## Support
 
 For issues or questions:
+
 - Check the documentation files
 - Review execution logs in Apps Script
 - Create an issue on GitHub
@@ -346,6 +355,7 @@ For issues or questions:
 ## Version History
 
 ### v1.0.0 - Initial Release
+
 - Form submission monitoring
 - Email approval workflow
 - Smart record matching

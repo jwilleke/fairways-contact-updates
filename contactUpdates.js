@@ -1,6 +1,6 @@
 /**
  * Fairways Contact Updates - Google Apps Script
- * Last Modified: 2025-11-08 06:15:00
+ * Last Modified: 2025-11-08 06:35:00
  *
  * Monitors form submissions and sends approval emails to administrators
  */
@@ -294,6 +294,42 @@ function addToMasterSheet(formData) {
     // Map form data to master sheet field names
     const mappedData = mapFieldsToMaster(formData);
 
+    // Parse address into components BEFORE trying to locate record
+    // This is needed because locateRecordInMaster() uses ST #, ST Name, ST Type for matching
+    const rawAddress = mappedData['Address'] || '';
+    if (rawAddress) {
+      const addressParts = parseAddress(rawAddress);
+      mappedData['ST #'] = addressParts.stNumber.toUpperCase();
+      mappedData['ST Name'] = addressParts.stName.toUpperCase();
+      mappedData['ST Type'] = addressParts.stType.toUpperCase();
+      // Format full address as UPPERCASE
+      if (addressParts.stNumber && addressParts.stName && addressParts.stType) {
+        mappedData['Address'] = (addressParts.stNumber + ' ' + addressParts.stName + ' ' + addressParts.stType).toUpperCase();
+      } else {
+        mappedData['Address'] = rawAddress.toUpperCase();
+      }
+      Logger.log('Pre-parsed address for matching - ST#: "' + mappedData['ST #'] + '", ST Name: "' + mappedData['ST Name'] + '", ST Type: "' + mappedData['ST Type'] + '"');
+    }
+
+    // Make Unit Manager UPPERCASE
+    if (mappedData['Unit Manager']) {
+      mappedData['Unit Manager'] = mappedData['Unit Manager'].toUpperCase();
+    }
+
+    // Set default values for empty fields
+    if (!mappedData['Email Type-1'] || mappedData['Email Type-1'].trim() === '') {
+      mappedData['Email Type-1'] = 'Home';
+    }
+    if (!mappedData['Newsletter'] || mappedData['Newsletter'].trim() === '') {
+      mappedData['Newsletter'] = 'Email';
+    }
+    if (!mappedData['Status'] || mappedData['Status'].trim() === '') {
+      mappedData['Status'] = 'Sold';
+    }
+    if (!mappedData['Entry Type'] || mappedData['Entry Type'].trim() === '') {
+      mappedData['Entry Type'] = 'Occupant';
+    }
+
     // Locate existing record in master sheet
     const recordInfo = locateRecordInMaster(mappedData);
 
@@ -446,58 +482,21 @@ function addNewMasterSheetRow(masterSheet, mappedData) {
 
 /**
  * Process fields that need special formatting or lookup before adding new row
+ * NOTE: Most preprocessing is now done in addToMasterSheet() before record lookup.
+ * This function is kept for fallback parcel lookup only.
  */
 function processNewRowFields(masterSheet, mappedData, masterHeaders) {
-  // Parse the address into components
-  const rawAddress = mappedData['Address'] || '';
-  const addressParts = parseAddress(rawAddress);
-
-  Logger.log('Parsed address: ST#="' + addressParts.stNumber + '" ST Name="' + addressParts.stName + '" ST Type="' + addressParts.stType + '"');
-
-  // Set the individual address component columns (all UPPERCASE)
-  if (masterHeaders.indexOf('ST #') !== -1) {
-    mappedData['ST #'] = addressParts.stNumber.toUpperCase();
-  }
-  if (masterHeaders.indexOf('ST Name') !== -1) {
-    mappedData['ST Name'] = addressParts.stName.toUpperCase();
-  }
-  if (masterHeaders.indexOf('ST Type') !== -1) {
-    mappedData['ST Type'] = addressParts.stType.toUpperCase();
-  }
-
-  // Set Address as UPPERCASE concatenation
-  if (addressParts.stNumber && addressParts.stName && addressParts.stType) {
-    mappedData['Address'] = (addressParts.stNumber + ' ' + addressParts.stName + ' ' + addressParts.stType).toUpperCase();
-  } else if (rawAddress) {
-    mappedData['Address'] = rawAddress.toUpperCase();
-  }
-
-  // Make Unit Manager UPPERCASE
-  if (mappedData['Unit Manager']) {
-    mappedData['Unit Manager'] = mappedData['Unit Manager'].toUpperCase();
-  }
-
-  // Try to find Parcel by looking up existing row with same address
-  const parcel = findParcelByAddress(masterSheet, mappedData['Address'], masterHeaders);
-  if (parcel) {
-    mappedData['Parcel'] = parcel;
-    Logger.log('Found existing parcel for address: ' + parcel);
+  // Fallback: If Parcel is still empty, try to find it by address lookup
+  if (!mappedData['Parcel'] || mappedData['Parcel'].toString().trim() === '') {
+    const parcel = findParcelByAddress(masterSheet, mappedData['Address'], masterHeaders);
+    if (parcel) {
+      mappedData['Parcel'] = parcel;
+      Logger.log('Fallback: Found existing parcel for address: ' + parcel);
+    } else {
+      Logger.log('Fallback: No existing parcel found - Parcel field will be empty');
+    }
   } else {
-    Logger.log('No existing parcel found - Parcel field will be empty');
-  }
-
-  // Set default values for empty fields
-  if (!mappedData['Email Type-1'] || mappedData['Email Type-1'].trim() === '') {
-    mappedData['Email Type-1'] = 'Home';
-  }
-  if (!mappedData['Newsletter'] || mappedData['Newsletter'].trim() === '') {
-    mappedData['Newsletter'] = 'Email';
-  }
-  if (!mappedData['Status'] || mappedData['Status'].trim() === '') {
-    mappedData['Status'] = 'Sold';
-  }
-  if (!mappedData['Entry Type'] || mappedData['Entry Type'].trim() === '') {
-    mappedData['Entry Type'] = 'Occupant';
+    Logger.log('Parcel already set: ' + mappedData['Parcel']);
   }
 }
 
