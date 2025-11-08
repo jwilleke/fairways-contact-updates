@@ -1,6 +1,6 @@
 /**
  * Fairways Contact Updates - Google Apps Script
- * Last Modified: 2025-11-08 05:46:10
+ * Last Modified: 2025-11-08 06:15:00
  *
  * Monitors form submissions and sends approval emails to administrators
  */
@@ -485,6 +485,20 @@ function processNewRowFields(masterSheet, mappedData, masterHeaders) {
   } else {
     Logger.log('No existing parcel found - Parcel field will be empty');
   }
+
+  // Set default values for empty fields
+  if (!mappedData['Email Type-1'] || mappedData['Email Type-1'].trim() === '') {
+    mappedData['Email Type-1'] = 'Home';
+  }
+  if (!mappedData['Newsletter'] || mappedData['Newsletter'].trim() === '') {
+    mappedData['Newsletter'] = 'Email';
+  }
+  if (!mappedData['Status'] || mappedData['Status'].trim() === '') {
+    mappedData['Status'] = 'Sold';
+  }
+  if (!mappedData['Entry Type'] || mappedData['Entry Type'].trim() === '') {
+    mappedData['Entry Type'] = 'Occupant';
+  }
 }
 
 /**
@@ -494,8 +508,29 @@ function setCalculatedFieldFormulas(masterSheet, rowNumber, headers) {
   // Find column indexes
   const parcelCol = headers.indexOf('Parcel') + 1;
   const addressCol = headers.indexOf('Address') + 1;
+  const stNumberCol = headers.indexOf('ST #') + 1;
+  const stNameCol = headers.indexOf('ST Name') + 1;
+  const stTypeCol = headers.indexOf('ST Type') + 1;
   const mapCol = headers.indexOf('Map') + 1;
   const knoxCountyCol = headers.indexOf('Knox County Link') + 1;
+
+  // Set Address formula
+  // =HYPERLINK(CONCATENATE("https://www.google.com/search?q=",F155,"+",G155,"+",H155,"+","OH","+43050"),VLOOKUP(A155,Reference!$Q$2:$AD,2,FALSE))
+  if (addressCol > 0 && parcelCol > 0 && stNumberCol > 0 && stNameCol > 0 && stTypeCol > 0) {
+    const parcelColLetter = columnToLetter(parcelCol);
+    const stNumberColLetter = columnToLetter(stNumberCol);
+    const stNameColLetter = columnToLetter(stNameCol);
+    const stTypeColLetter = columnToLetter(stTypeCol);
+
+    const addressFormula = '=HYPERLINK(CONCATENATE("https://www.google.com/search?q=",' +
+                          stNumberColLetter + rowNumber + ',"+",",' +
+                          stNameColLetter + rowNumber + ',"+",",' +
+                          stTypeColLetter + rowNumber + ',"+","OH","+43050"),' +
+                          'VLOOKUP(' + parcelColLetter + rowNumber + ',Reference!$Q$2:$AD,2,FALSE))';
+
+    Logger.log('Setting Address formula: ' + addressFormula);
+    masterSheet.getRange(rowNumber, addressCol).setFormula(addressFormula);
+  }
 
   // Set Map hyperlink formula
   // =HYPERLINK(CONCATENATE("https://www.google.com/maps/place/",B154,", Mount Vernon, OH 43050"),"Map")
@@ -1324,7 +1359,23 @@ function sendTestApprovalEmail(formData, rowNumber, sheetId) {
   }
 
   // Add CHANGES TABLE (HTML version)
-  if (changes.length > 0) {
+  // For new entries, show all form data; for updates, show only changed fields
+  if (isNewEntry) {
+    // Count non-internal fields
+    const fieldCount = Object.keys(formData).filter(k => !k.startsWith('_')).length;
+    htmlBody += '<h3>📋 Form Data to be Added (' + fieldCount + ' fields)</h3>';
+    htmlBody += '<table border="1" cellpadding="8" cellspacing="0" style="border-collapse: collapse; width: 100%; margin-bottom: 20px;">';
+    htmlBody += '<tr style="background-color: #f0f0f0;"><th>Field</th><th>Value</th></tr>';
+    Object.keys(formData).forEach(function(key) {
+      if (!key.startsWith('_')) {
+        htmlBody += '<tr>';
+        htmlBody += '<td><strong>' + key + '</strong></td>';
+        htmlBody += '<td style="background-color: #e6ffe6;">' + (formData[key] || '<em>(empty)</em>') + '</td>';
+        htmlBody += '</tr>';
+      }
+    });
+    htmlBody += '</table>';
+  } else if (changes.length > 0) {
     htmlBody += '<h3>📋 Changes to be Made (' + changes.length + ' fields)</h3>';
     htmlBody += '<table border="1" cellpadding="8" cellspacing="0" style="border-collapse: collapse; width: 100%; margin-bottom: 20px;">';
     htmlBody += '<tr style="background-color: #f0f0f0;"><th>Field</th><th>Old Value</th><th>New Value</th></tr>';
@@ -1336,24 +1387,14 @@ function sendTestApprovalEmail(formData, rowNumber, sheetId) {
       htmlBody += '</tr>';
     });
     htmlBody += '</table>';
-  } else if (!isNewEntry) {
+  } else {
     htmlBody += '<div style="background-color: #e7f3ff; border: 2px solid #0066cc; padding: 15px; margin-bottom: 20px;">';
     htmlBody += '<h3 style="color: #0066cc; margin-top: 0;">ℹ️ NO CHANGES DETECTED</h3>';
     htmlBody += '<p style="margin: 0;">All form values match existing test master sheet data.</p>';
     htmlBody += '</div>';
   }
 
-  htmlBody += '<h3>All Form Data</h3>';
-  htmlBody += '<table border="1" cellpadding="8" cellspacing="0" style="border-collapse: collapse;">';
-
-  Object.keys(formData).forEach(function(key) {
-    if (!key.startsWith('_')) {
-      htmlBody += '<tr><td><strong>' + key + '</strong></td><td>' + formData[key] + '</td></tr>';
-    }
-  });
-
-  htmlBody += '</table>';
-  htmlBody += '<br><br>';
+  htmlBody += '<br>';
   htmlBody += '<h3>Actions Required</h3>';
   htmlBody += '<p><a href="' + approveUrl + '" style="background-color: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; margin-right: 10px;">✓ APPROVE (TEST)</a>';
   htmlBody += '<a href="' + rejectUrl + '" style="background-color: #f44336; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">✗ REJECT (TEST)</a></p>';
