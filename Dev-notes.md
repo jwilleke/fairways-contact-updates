@@ -15,6 +15,17 @@ Library
 URL
 https://script.google.com/macros/library/d/1zGmo8ag4KRrdAJzZU7rCvMUUOxqyTZVvcaqXYZmq9qa2BIar6B_EReS9/13
 
+## Time and costs
+
+Total token cost $24.32
+
+
+All documentation is now current and reflects the working state of the code at version 2025-11-08 07:10:00.
+Total cost:            $2.29
+Total duration (API):  1h 1m 36s
+Total duration (wall): 16h 31m 13s
+Total code changes:    3474 lines added, 1753 lines removed
+
 
 ## Other stuff
 

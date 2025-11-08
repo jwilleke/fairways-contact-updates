@@ -341,11 +341,13 @@ New row added to test master sheet
 **Symptoms:** Every approval creates a new row instead of updating existing record
 
 **Causes:**
+
 1. `locateRecordInMaster()` throwing an error (check logs for "Error locating record:")
 2. Address parsing happening after record lookup
 3. Missing column index definitions
 
 **Solutions:**
+
 - Check logs for errors during record lookup
 - Ensure latest code is deployed (version 2025-11-08 07:10:00 or later)
 - Verify Address field is being parsed before `locateRecordInMaster()` is called
@@ -394,6 +396,7 @@ For issues or questions:
 ### v1.2.0 - 2025-11-08 (Current)
 
 **Critical Fixes:**
+
 - Fixed `addressColIndex undefined` error that caused all updates to add new rows
 - Fixed record matching to parse address BEFORE lookup (was failing silently)
 - Fixed Address field comparison to normalize "1 FAIRWAY DR" vs "1 FAIRWAY DR, Mount Vernon, OH 43050"
@@ -401,6 +404,7 @@ For issues or questions:
 - Address formulas now preserved during updates (not overwritten)
 
 **Enhancements:**
+
 - Address-based matching using ST #, ST Name, ST Type components
 - Parcel-aware record lookup for multi-occupant addresses
 - Preprocessing of all data (address parsing, uppercase, defaults) before record lookup

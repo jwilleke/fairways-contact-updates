@@ -10,17 +10,17 @@ Complete technical reference for the contact updates system.
 
 ---
 
-# Field Mapping
+## Field Mapping
 
-## What Was Updated
+### What Was Updated
 
 The `contactUpdates.js` file has been updated with comprehensive field mapping and record matching logic based on README.md requirements.
 
-## 1. Complete Field Mapping
+### 1. Complete Field Mapping
 
 All fields from your mapping table have been added to `FIELD_MAPPING`:
 
-### Form Fields → Master Sheet Fields
+#### Form Fields → Master Sheet Fields
 
 | Form Field (Contact Information - Responses) | Master Sheet Field (Shared-Fairways-Directory) |
 |-----------------------------------------------|-----------------------------------------------|
@@ -47,11 +47,11 @@ All fields from your mapping table have been added to `FIELD_MAPPING`:
 | Do you have a Alternate Home | Alternate Home? |
 | Any other Contact Information | Other Contact Information |
 
-## 2. Enhanced Record Matching Logic
+### 2. Enhanced Record Matching Logic
 
 New function: `locateRecordInMaster(formData)`
 
-### Matching Priority (as per README.md):
+#### Matching Priority (as per README.md)
 
 1. **First Priority:** Match by `Email-1`
    - Case-insensitive comparison
@@ -64,7 +64,7 @@ New function: `locateRecordInMaster(formData)`
 
 3. **Result:** If no match found → NEW ENTRY
 
-### Return Object Structure:
+#### Return Object Structure
 
 ```javascript
 {
@@ -77,11 +77,12 @@ New function: `locateRecordInMaster(formData)`
 }
 ```
 
-## 3. Enhanced Test Email Display
+### 3. Enhanced Test Email Display
 
 The test email now shows:
 
-### For NEW Entries:
+### For NEW Entries
+
 ```
 ┌──────────────────────────────────────────┐
 │ ✨ NEW ENTRY                             │
@@ -90,8 +91,9 @@ The test email now shows:
 └──────────────────────────────────────────┘
 ```
 
-### For EXISTING Entries:
-```
+### For EXISTING Entries
+
+```text
 ┌──────────────────────────────────────────┐
 │ 📝 EXISTING ENTRY                        │
 │ Record found at row 42 in master sheet   │
@@ -115,13 +117,13 @@ The test function now logs:
 
 ## Usage
 
-### Run Test Function:
+### Run Test Function
 
 ```javascript
 testRowEmail(2)  // Test row 2 from test sheet
 ```
 
-### Expected Output in Logs:
+### Expected Output in Logs
 
 ```
 Test Form Data from row 2:
@@ -168,6 +170,7 @@ The test function will match these directly. If the form has separate fields for
 ### Parcel Considerations
 
 As noted in README:
+
 - Each Parcel may have multiple occupants/owners
 - Each Parcel must have the same Address
 - We identify proper person by Email-1 or First Name + Last Name
@@ -199,6 +202,7 @@ When ready to use in production (non-test mode):
 3. Check execution logs for detailed matching information
 4. Check email for formatted approval request with NEW/EXISTING indicator
 5. Verify all fields are properly mapped
+
 # UPDATE Logic Implementation
 
 ## Overview
@@ -274,10 +278,12 @@ Successfully updated 3 fields in row 47
 ### What Gets Updated
 
 ✅ **Updates applied when:**
+
 - New value is different from existing value
 - New value is not empty
 
 ❌ **Updates NOT applied when:**
+
 - New value matches existing value (no change)
 - New value is empty (preserves existing data)
 
@@ -293,25 +299,33 @@ When NO matching record is found:
 ## Key Functions
 
 ### `addToMasterSheet(formData)`
+
 **Main orchestrator function**
+
 - Maps form data to master sheet fields
 - Locates existing record
 - Calls UPDATE or ADD function accordingly
 
 ### `updateMasterSheetRow(sheet, rowNumber, newData, existingData)`
+
 **Updates existing record**
+
 - Compares field by field
 - Only updates changed fields
 - Preserves existing data when form field is empty
 - Returns array of changed fields
 
 ### `addNewMasterSheetRow(sheet, mappedData)`
+
 **Adds new record**
+
 - Appends new row to master sheet
 - Uses master sheet's column order
 
 ### `locateRecordInMaster(formData)`
+
 **Finds matching record**
+
 - Priority 1: Email-1 match
 - Priority 2: First Name + Last Name match
 - Returns: row number, match method, existing data
@@ -344,6 +358,7 @@ testRowEmail(2)  // Test with row 2 from test sheet
 The test email will indicate:
 
 **For EXISTING records:**
+
 ```
 ┌──────────────────────────────────────────┐
 │ 📝 EXISTING ENTRY                        │
@@ -355,6 +370,7 @@ The test email will indicate:
 ```
 
 **For NEW records:**
+
 ```
 ┌──────────────────────────────────────────┐
 │ ✨ NEW ENTRY                             │
@@ -365,7 +381,7 @@ The test email will indicate:
 
 ## Production Use
 
-### When a form is submitted:
+### When a form is submitted
 
 1. **Email sent to admin** with form data
 2. **Admin clicks APPROVE** in email
@@ -398,19 +414,23 @@ New row added to master sheet
 ## Important Notes
 
 ### Empty Values
+
 - Empty form fields do NOT overwrite existing master sheet data
 - This preserves information that wasn't included in the update
 
 ### Timestamp
+
 - Timestamp is preserved from form submission
 - Gets mapped automatically
 
 ### Matching Priority
+
 1. **Email-1 is checked first** (most reliable)
 2. **First Name + Last Name** is fallback (in case email changed)
 3. **No match = New entry**
 
 ### Parcel and Address
+
 - System shows existing Parcel in test email
 - Address should match for same Parcel (per README requirements)
 - Consider validating Address matches Parcel when updating
@@ -429,6 +449,7 @@ To enable production approval workflow:
 
 - `contactUpdates.js` - Added UPDATE logic and helper functions
 - Code pushed to Google Apps Script
+
 # Updated Test Workflow
 
 ## What Changed
@@ -462,19 +483,24 @@ testRowEmail(93)
 ## Email Features
 
 ### 🧪 TEST MODE Banner
+
 Shows:
+
 - Form Response Row number (e.g., Row 93)
 - Source: Contact Information (Responses)
 - Target: TEST master sheet (DONOTUSE-Shared-Fairways-Directory)
 
 ### 📝 Match Information
+
 For existing records:
+
 - Row number in test master sheet
 - How it matched (Email-1 or First Name + Last Name)
 - Existing Parcel ID
 - Existing Address
 
 For new records:
+
 - "NEW ENTRY" indicator
 - Will ADD a new contact
 
@@ -489,46 +515,53 @@ For new records:
 | Date Moved In | 2020-01-01 | 2023-05-15 |
 
 **Colors:**
+
 - Old values: Red background
 - New values: Green background
 
 **If no changes detected:**
+
 - Shows "NO CHANGES DETECTED" message
 - Indicates all values match existing data
 
 ## Usage
 
-### In Apps Script Editor:
+### In Apps Script Editor
 
 ```javascript
 testRowEmail(93)  // Test row 93 from Contact Information (Responses)
 ```
 
-### What It Returns:
+### What It Returns
 
 **For existing record with changes:**
+
 ```
 Email sent! Form row 93 would UPDATE test master row 47 (matched by Email-1) with 3 changes
 ```
 
 **For existing record with no changes:**
+
 ```
 Email sent! Form row 93 would UPDATE test master row 47 (matched by First Name + Last Name) with 0 changes
 ```
 
 **For new record:**
+
 ```
 Email sent! Form row 93 would ADD A NEW entry to test master.
 ```
 
 ## Example Email Content
 
-### Email Subject:
+### Email Subject
+
 ```
 [TEST MODE] New Contact Update Request - Action Required
 ```
 
-### Email Body (Text):
+### Email Body (Text)
+
 ```
 === TEST MODE - UPDATES WILL BE MADE TO TEST MASTER SHEET ===
 
@@ -572,7 +605,8 @@ Last Name: Weis
 [APPROVE Button]  [REJECT Button]
 ```
 
-### Email Body (HTML):
+### Email Body (HTML)
+
 - Colored banners for TEST MODE, NEW/EXISTING entry
 - Visual changes table with red/green highlighting
 - Clean formatted tables for all data
@@ -617,14 +651,14 @@ Email sent! Form row 93 would UPDATE test master row 47 (matched by Email-1) wit
 
 ## Configuration
 
-### To Test:
+### To Test
 
 1. Find a row number from "Contact Information (Responses)" sheet
 2. Run `testRowEmail(rowNumber)` in Apps Script
 3. Check email for changes table
 4. If approved, changes go to TEST master sheet
 
-### Sheet IDs:
+### Sheet IDs
 
 ```javascript
 // Real form responses (source)
@@ -640,6 +674,7 @@ CONFIG.masterSheetId = '1oygR4binYLEgk6ctm_wuxOfiGAHjepuw35SntwIIdcc'
 ## Next Steps
 
 1. **Test with Row 93:**
+
    ```javascript
    testRowEmail(93)
    ```
