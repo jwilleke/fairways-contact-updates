@@ -4,7 +4,8 @@ These are notes made during devvelopement and mean nothing.
 
 ## Test Deployment
 
-Version 10 on Nov 8, 2025, 3:25 AM
+Deployment successfully updated.
+Version 12 on Nov 8, 2025, 4:33 AM
 Deployment ID
 AKfycbxecygdsg6UrQYrh8XPjUtB_LKxMx6s7yAWY1bR9vj0ITZNacBh9obYh1_Dj8GFXaXpGw
 Web app
@@ -12,8 +13,10 @@ URL
 https://script.google.com/macros/s/AKfycbxecygdsg6UrQYrh8XPjUtB_LKxMx6s7yAWY1bR9vj0ITZNacBh9obYh1_Dj8GFXaXpGw/exec
 Library
 URL
-https://script.google.com/macros/library/d/1zGmo8ag4KRrdAJzZU7rCvMUUOxqyTZVvcaqXYZmq9qa2BIar6B_EReS9/10
+https://script.google.com/macros/library/d/1zGmo8ag4KRrdAJzZU7rCvMUUOxqyTZVvcaqXYZmq9qa2BIar6B_EReS9/12
 
+
+## Other stuff
 
 What was inserted
 =HYPERLINK(CONCATENATE("<https://www.google.com/search?q=",F155,"+","G155,"+","H155,"+","OH","+43050"),VLOOKUP($A155,Reference!$Q$2:$AD,2,FALSE>))
@@ -58,3 +61,19 @@ URL
   =HYPERLINK(CONCATENATE("https://www.google.com/search?q=",F5,"+",G5,"+",H5,"+","OH","+43050"),VLOOKUP($A5,Reference!$Q$2:$AD,2,FALSE))\
   But it is confusing in the email.\
   \
+
+## Email Types
+
+These are from <https://docs.google.com/spreadsheets/d/1oygR4binYLEgk6ctm_wuxOfiGAHjepuw35SntwIIdcc/edit?gid=1099395752#gid=1099395752>
+
+Home
+Work
+Private <-- Do not put on form
+None
+Broken <-- Do not put on form
+Why would you ask a question and then just plow aheand making changes?\
+  Could you check the DONOTUSE-Shared-Fairways-Directory sheet - what is the exact header text in column AT? It might be slightly different (like "Other Contact Info" or "Additional Contact Information").\
+  But you're saying column AT in the test master sheet (DONOTUSE-Shared-Fairways-Directory) doesn't exist or doesn't have a "Other Contact Information" header. Let me verify what the actual column headers are in your master sheet.\
+  \
+  I am saying ALL Columns exist in master sheet (DONOTUSE-Shared-Fairways-Directory) and it is Column "AT" and the title is "Other Contact Information"\
+  Which comes from  formResponsesSheetId: '1RpIyxcpdKETP5BCpc8K6znlhqg82cmACZKxdqnILqSM', "Any other Contact Information" Column "AA".

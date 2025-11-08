@@ -1,6 +1,6 @@
 /**
  * Fairways Contact Updates - Google Apps Script
- * Last Modified: 2025-11-08 06:35:00
+ * Last Modified: 2025-11-08 07:10:00
  *
  * Monitors form submissions and sends approval emails to administrators
  */
@@ -39,7 +39,7 @@ const CONFIG = {
 
 // Testing function 
 function testThisFunction () {
-  testRowEmail(94)
+  testRowEmail(95)
 }
 
 /**
@@ -394,6 +394,9 @@ function updateMasterSheetRow(masterSheet, rowNumber, newData, existingData) {
     applyFieldFormatting(newData);
 
     Logger.log('Comparing values for update...');
+    Logger.log('Headers found in master sheet: ' + headers.length + ' columns');
+    Logger.log('Fields in newData: ' + Object.keys(newData).filter(k => !k.startsWith('_')).join(', '));
+
     const changedFields = [];
 
     // Compare each field and update if different
@@ -402,18 +405,32 @@ function updateMasterSheetRow(masterSheet, rowNumber, newData, existingData) {
       const existingValue = existingData[header] || '';
 
       // Convert to strings for comparison
-      const newStr = String(newValue).trim();
-      const existingStr = String(existingValue).trim();
+      let newStr = String(newValue).trim();
+      let existingStr = String(existingValue).trim();
+
+      // Special handling for Address field - normalize for comparison
+      // Old address may be "1 FAIRWAY DR, Mount Vernon, OH 43050" (from VLOOKUP formula)
+      // New address is just "1 FAIRWAY DR" (from form)
+      // Don't update if they're the same street address
+      if (header === 'Address') {
+        existingStr = existingStr.split(',')[0].trim();
+        newStr = newStr.split(',')[0].trim();
+      }
 
       if (newStr !== existingStr && newStr !== '') {
         // Value has changed and new value is not empty
-        masterSheet.getRange(rowNumber, colIndex + 1).setValue(newValue);
-        changedFields.push({
-          field: header,
-          oldValue: existingValue,
-          newValue: newValue
-        });
-        Logger.log('Updated ' + header + ': "' + existingValue + '" -> "' + newValue + '"');
+        // For Address field, don't overwrite the formula - skip it
+        if (header !== 'Address') {
+          masterSheet.getRange(rowNumber, colIndex + 1).setValue(newValue);
+          changedFields.push({
+            field: header,
+            oldValue: existingValue,
+            newValue: newValue
+          });
+          Logger.log('Updated ' + header + ': "' + existingValue + '" -> "' + newValue + '"');
+        } else {
+          Logger.log('Skipping Address field update (preserving formula)');
+        }
       }
     });
 
@@ -751,7 +768,42 @@ function testRowEmail(rowNumber) {
     // Map fields to master sheet format
     const mappedData = mapFieldsToMaster(formData);
 
-    Logger.log('Mapped Data for Master Sheet:');
+    // Parse address into components BEFORE trying to locate record
+    // This is needed because locateRecordInTestMaster() uses ST #, ST Name, ST Type for matching
+    const rawAddress = mappedData['Address'] || '';
+    if (rawAddress) {
+      const addressParts = parseAddress(rawAddress);
+      mappedData['ST #'] = addressParts.stNumber.toUpperCase();
+      mappedData['ST Name'] = addressParts.stName.toUpperCase();
+      mappedData['ST Type'] = addressParts.stType.toUpperCase();
+      // Format full address as UPPERCASE
+      if (addressParts.stNumber && addressParts.stName && addressParts.stType) {
+        mappedData['Address'] = (addressParts.stNumber + ' ' + addressParts.stName + ' ' + addressParts.stType).toUpperCase();
+      } else {
+        mappedData['Address'] = rawAddress.toUpperCase();
+      }
+    }
+
+    // Make Unit Manager UPPERCASE
+    if (mappedData['Unit Manager']) {
+      mappedData['Unit Manager'] = mappedData['Unit Manager'].toUpperCase();
+    }
+
+    // Set default values for empty fields
+    if (!mappedData['Email Type-1'] || mappedData['Email Type-1'].trim() === '') {
+      mappedData['Email Type-1'] = 'Home';
+    }
+    if (!mappedData['Newsletter'] || mappedData['Newsletter'].trim() === '') {
+      mappedData['Newsletter'] = 'Email';
+    }
+    if (!mappedData['Status'] || mappedData['Status'].trim() === '') {
+      mappedData['Status'] = 'Sold';
+    }
+    if (!mappedData['Entry Type'] || mappedData['Entry Type'].trim() === '') {
+      mappedData['Entry Type'] = 'Occupant';
+    }
+
+    Logger.log('Mapped Data for Master Sheet (after preprocessing):');
     Logger.log(JSON.stringify(mappedData, null, 2));
 
     // Locate record in TEST MASTER sheet using comprehensive matching logic
@@ -1017,8 +1069,17 @@ function calculateChanges(newData, existingData) {
     Object.keys(newData).forEach(function(field) {
       if (field.startsWith('_')) return; // Skip metadata fields
 
-      const newValue = newData[field] || '';
-      const oldValue = existingData[field] || '';
+      let newValue = newData[field] || '';
+      let oldValue = existingData[field] || '';
+
+      // Special handling for Address field - normalize for comparison
+      // Old address may be "1 FAIRWAY DR, Mount Vernon, OH 43050" (from VLOOKUP formula)
+      // New address is just "1 FAIRWAY DR" (from form)
+      if (field === 'Address') {
+        // Strip city/state/zip from old value for comparison
+        oldValue = String(oldValue).split(',')[0].trim();
+        newValue = String(newValue).split(',')[0].trim();
+      }
 
       const newStr = String(newValue).trim();
       const oldStr = String(oldValue).trim();
@@ -1062,12 +1123,13 @@ function locateRecordInMaster(formData) {
     const emailColIndex = headers.indexOf('Email-1');
     const firstNameColIndex = headers.indexOf('First Name');
     const lastNameColIndex = headers.indexOf('Last Name');
+    const addressColIndex = headers.indexOf('Address');
     const parcelColIndex = headers.indexOf('Parcel');
     const stNumberColIndex = headers.indexOf('ST #');
     const stNameColIndex = headers.indexOf('ST Name');
     const stTypeColIndex = headers.indexOf('ST Type');
 
-    Logger.log('Column indices - ST#: ' + stNumberColIndex + ', ST Name: ' + stNameColIndex + ', ST Type: ' + stTypeColIndex + ', Parcel: ' + parcelColIndex + ', Email-1: ' + emailColIndex + ', First Name: ' + firstNameColIndex + ', Last Name: ' + lastNameColIndex);
+    Logger.log('Column indices - ST#: ' + stNumberColIndex + ', ST Name: ' + stNameColIndex + ', ST Type: ' + stTypeColIndex + ', Parcel: ' + parcelColIndex + ', Address: ' + addressColIndex + ', Email-1: ' + emailColIndex + ', First Name: ' + firstNameColIndex + ', Last Name: ' + lastNameColIndex);
 
     const email = formData['Email-1'];
     const firstName = formData['First Name'];
