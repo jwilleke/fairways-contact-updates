@@ -179,13 +179,18 @@ Successfully updated 3 fields in row 47
 
 ## Record Matching Logic
 
-The system uses a two-step matching process:
+The system uses a comprehensive address-based matching process:
 
-1. **Primary Match:** Email-1 address (case-insensitive)
-2. **Fallback Match:** First Name + Last Name (both must match)
-3. **No Match:** Creates new entry
+1. **Parse Address:** Extract ST #, ST Name, ST Type from form address
+2. **Find Address Matches:** Locate all rows with matching address components
+3. **Get Parcel:** Extract Parcel ID from matching addresses
+4. **Within Parcel Group:**
+   - **Primary Match:** Email-1 address (case-insensitive)
+   - **Fallback Match:** First Name + Last Name (both must match)
+5. **No Person Match:** Creates new entry with matched Parcel
+6. **No Address Match:** Creates new entry without Parcel
 
-See [README.md](README.md) "Locating records" section for details.
+This ensures multiple occupants at the same address (same Parcel) are handled correctly.
 
 ## Documentation
 
@@ -317,6 +322,7 @@ New row added to test master sheet
 - Ensure web app is deployed
 - Check "Who has access" is set to "Anyone"
 - Verify script URL in email is correct
+- Check `executeAs` is set to "USER_DEPLOYING" in appsscript.json
 
 ### Wrong sheet being updated
 
@@ -329,6 +335,37 @@ New row added to test master sheet
 - Check `FIELD_MAPPING` constant
 - Verify exact column names in both sheets
 - Look for typos or extra spaces
+
+### Updates adding new rows instead of updating
+
+**Symptoms:** Every approval creates a new row instead of updating existing record
+
+**Causes:**
+1. `locateRecordInMaster()` throwing an error (check logs for "Error locating record:")
+2. Address parsing happening after record lookup
+3. Missing column index definitions
+
+**Solutions:**
+- Check logs for errors during record lookup
+- Ensure latest code is deployed (version 2025-11-08 07:10:00 or later)
+- Verify Address field is being parsed before `locateRecordInMaster()` is called
+- Delete duplicate rows created during testing
+
+### Address showing as changed when it's the same
+
+**Symptoms:** Email shows Address as changed from "1 FAIRWAY DR, Mount Vernon, OH 43050" to "1 FAIRWAY DR"
+
+**Cause:** Address field in master sheet contains formula result with full address, form has just street address
+
+**Solution:** Code normalizes addresses by stripping city/state/zip for comparison (fixed in v1.2.0)
+
+### Unit Manager showing as changed
+
+**Symptoms:** Email shows Unit Manager changed from "SELF" to "Self"
+
+**Cause:** Form has mixed case, master sheet has uppercase
+
+**Solution:** Code now uppercases Unit Manager before comparison (fixed in v1.2.0)
 
 ## Contributing
 
@@ -353,6 +390,24 @@ For issues or questions:
 - Create an issue on GitHub
 
 ## Version History
+
+### v1.2.0 - 2025-11-08 (Current)
+
+**Critical Fixes:**
+- Fixed `addressColIndex undefined` error that caused all updates to add new rows
+- Fixed record matching to parse address BEFORE lookup (was failing silently)
+- Fixed Address field comparison to normalize "1 FAIRWAY DR" vs "1 FAIRWAY DR, Mount Vernon, OH 43050"
+- Fixed Unit Manager case sensitivity ("Self" vs "SELF")
+- Address formulas now preserved during updates (not overwritten)
+
+**Enhancements:**
+- Address-based matching using ST #, ST Name, ST Type components
+- Parcel-aware record lookup for multi-occupant addresses
+- Preprocessing of all data (address parsing, uppercase, defaults) before record lookup
+- Default values: Email Type-1="Home", Newsletter="Email", Status="Sold", Entry Type="Occupant"
+- Address formula generation with VLOOKUP and Google Maps hyperlink
+- Map and Knox County Link formula generation
+- Enhanced debug logging for troubleshooting
 
 ### v1.0.0 - Initial Release
 
