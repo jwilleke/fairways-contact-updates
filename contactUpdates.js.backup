@@ -1,7 +1,5 @@
 /**
  * Fairways Contact Updates - Google Apps Script
- * Last Modified: 2025-11-08 05:46:10
- *
  * Monitors form submissions and sends approval emails to administrators
  */
 

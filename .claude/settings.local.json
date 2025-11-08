@@ -3,7 +3,8 @@
     "allow": [
       "Bash(clasp pull:*)",
       "Bash(clasp status:*)",
-      "Bash(clasp open:*)"
+      "Bash(clasp open:*)",
+      "Bash(clasp push:*)"
     ],
     "deny": [],
     "ask": []
