@@ -10,7 +10,7 @@ const CONFIG = {
   // ===== MODE SETTING =====
   // Set to true for TESTING (uses test master sheet)
   // Set to false for PRODUCTION (uses real master sheet)
-  TEST_MODE: true,
+  TEST_MODE: false,
 
   // Email address to send notifications to
   adminEmail: 'fairwayscondos-administrator@googlegroups.com, fairwaywebevents@gmail.com',
@@ -39,7 +39,7 @@ const CONFIG = {
 
 // Testing function 
 function testThisFunction () {
-  testRowEmail(95)
+  testRowEmail(93)
 }
 
 /**
