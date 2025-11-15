@@ -4,7 +4,8 @@ These are notes made during devvelopement and mean nothing.
 
 ## Test Deployment
 
-Version 14 on Nov 15, 2025, 3:51 AM
+Deployment successfully updated.
+Version 18 on Nov 15, 2025, 4:49 AM
 Deployment ID
 AKfycbxecygdsg6UrQYrh8XPjUtB_LKxMx6s7yAWY1bR9vj0ITZNacBh9obYh1_Dj8GFXaXpGw
 Web app
@@ -12,7 +13,7 @@ URL
 https://script.google.com/macros/s/AKfycbxecygdsg6UrQYrh8XPjUtB_LKxMx6s7yAWY1bR9vj0ITZNacBh9obYh1_Dj8GFXaXpGw/exec
 Library
 URL
-https://script.google.com/macros/library/d/1zGmo8ag4KRrdAJzZU7rCvMUUOxqyTZVvcaqXYZmq9qa2BIar6B_EReS9/14
+https://script.google.com/macros/library/d/1zGmo8ag4KRrdAJzZU7rCvMUUOxqyTZVvcaqXYZmq9qa2BIar6B_EReS9/1
 
 ## Time and costs
 

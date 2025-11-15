@@ -51,6 +51,101 @@ function getMasterSheetId() {
 }
 
 /**
+ * Logs an action to the sheetLogs sheet in the master spreadsheet
+ * @param {string} action - "Modified" or "Added"
+ * @param {string} name - Full name of the person (First Name + Last Name)
+ * @param {string} address - Address of the entry
+ * @param {string} approvedBy - Email of person who approved
+ */
+function logToSheetLogs(action, name, address, approvedBy) {
+  try {
+    const masterSheetId = getMasterSheetId();
+    const masterSpreadsheet = SpreadsheetApp.openById(masterSheetId);
+
+    // Get or create sheetLogs sheet
+    let logSheet = masterSpreadsheet.getSheetByName('sheetLogs');
+    if (!logSheet) {
+      logSheet = masterSpreadsheet.insertSheet('sheetLogs');
+      // Add headers
+      logSheet.getRange(1, 1, 1, 5).setValues([['DateTime', 'Action', 'Name', 'Address', 'Approved By']]);
+      logSheet.getRange(1, 1, 1, 5).setFontWeight('bold');
+      Logger.log('Created sheetLogs sheet');
+    }
+
+    // Add new log entry
+    const timestamp = new Date();
+    logSheet.appendRow([timestamp, action, name, address, approvedBy]);
+
+    Logger.log('Logged to sheetLogs: ' + action + ' ' + name + ' at ' + address + ' by ' + approvedBy);
+  } catch (error) {
+    Logger.log('Error logging to sheetLogs: ' + error.toString());
+    // Don't throw - logging failure shouldn't stop the main operation
+  }
+}
+
+/**
+ * Remove sheet protection temporarily
+ * @param {Sheet} sheet - The sheet to remove protection from
+ * @returns {Array} Array of protection settings that were removed
+ */
+function removeProtection(sheet) {
+  const protections = sheet.getProtections(SpreadsheetApp.ProtectionType.SHEET);
+  const removedProtections = [];
+
+  protections.forEach(function(protection) {
+    try {
+      if (protection.canEdit()) {
+        // Store protection settings before removing
+        removedProtections.push({
+          description: protection.getDescription(),
+          editors: protection.getEditors(),
+          warningOnly: protection.isWarningOnly()
+        });
+        protection.remove();
+        Logger.log('Protection removed: ' + protection.getDescription());
+      } else {
+        Logger.log('WARNING: Cannot remove protection - insufficient permissions: ' + protection.getDescription());
+      }
+    } catch (error) {
+      Logger.log('WARNING: Error removing protection: ' + error.toString());
+    }
+  });
+
+  if (removedProtections.length === 0 && protections.length > 0) {
+    Logger.log('WARNING: Sheet is protected but script cannot remove protections. Attempting to proceed anyway.');
+  }
+
+  return removedProtections;
+}
+
+/**
+ * Restore sheet protection
+ * @param {Sheet} sheet - The sheet to restore protection to
+ * @param {Array} protectionSettings - Array of protection settings to restore
+ */
+function restoreProtection(sheet, protectionSettings) {
+  protectionSettings.forEach(function(settings) {
+    const protection = sheet.protect();
+
+    if (settings.description) {
+      protection.setDescription(settings.description);
+    }
+
+    if (settings.warningOnly) {
+      protection.setWarningOnly(true);
+    } else {
+      // Set specific editors
+      protection.removeEditors(protection.getEditors());
+      if (settings.editors && settings.editors.length > 0) {
+        protection.addEditors(settings.editors);
+      }
+    }
+
+    Logger.log('Protection restored: ' + settings.description);
+  });
+}
+
+/**
  * This function is triggered when a new form response is submitted
  * To set up: Run setupTrigger() once, or manually create an onFormSubmit trigger
  */
@@ -104,17 +199,57 @@ function sendApprovalEmail(formData, rowNumber, sheetId) {
   const approveUrl = `${scriptUrl}?action=approve&row=${rowNumber}&sheetId=${sheetId}`;
   const rejectUrl = `${scriptUrl}?action=reject&row=${rowNumber}&sheetId=${sheetId}`;
 
+  // Check if this is a new entry or update (metadata from testRowEmail)
+  const isNewEntry = formData['_IS_NEW_ENTRY'];
+  const matchedBy = formData['_MATCHED_BY'];
+  const masterRow = formData['_MASTER_ROW'];
+  const existingParcel = formData['_EXISTING_PARCEL'];
+  const existingAddress = formData['_EXISTING_ADDRESS'];
+  const changes = formData['_CHANGES'] || [];
+
   // Build email body
   let emailBody = '';
   if (CONFIG.TEST_MODE) {
     emailBody += '🧪 TEST MODE - Updates will go to TEST master sheet 🧪\n\n';
   }
+
+  // Add NEW or UPDATE indicator
+  if (isNewEntry !== undefined) {
+    if (isNewEntry) {
+      emailBody += '*** NEW ENTRY ***\n';
+      emailBody += '*** This will ADD a new contact to the directory ***\n\n';
+    } else {
+      emailBody += '*** EXISTING ENTRY - UPDATE ***\n';
+      emailBody += '*** This will UPDATE existing contact at row ' + masterRow + ' ***\n';
+      if (matchedBy) {
+        emailBody += '*** Matched by: ' + matchedBy + ' ***\n';
+      }
+      emailBody += '\n';
+    }
+  }
+
   emailBody += 'A new contact update request has been submitted.\n\n';
+
+  // Add changes summary if available
+  if (changes.length > 0) {
+    emailBody += '=== CHANGES TO BE MADE (' + changes.length + ' fields) ===\n\n';
+    changes.forEach(function(change) {
+      emailBody += change.field + ':\n';
+      emailBody += '  OLD: ' + (change.oldValue || '(empty)') + '\n';
+      emailBody += '  NEW: ' + change.newValue + '\n\n';
+    });
+  } else if (!isNewEntry && isNewEntry !== undefined) {
+    emailBody += '=== NO CHANGES DETECTED ===\n\n';
+    emailBody += 'All form values match existing master sheet data.\n\n';
+  }
+
   emailBody += '=== SUBMISSION DETAILS ===\n\n';
 
-  // Add all form fields to email
+  // Add all form fields to email (excluding internal metadata)
   Object.keys(formData).forEach(key => {
-    emailBody += `${key}: ${formData[key]}\n`;
+    if (!key.startsWith('_')) {
+      emailBody += `${key}: ${formData[key]}\n`;
+    }
   });
 
   emailBody += '\n\n=== ACTIONS ===\n\n';
@@ -132,12 +267,77 @@ function sendApprovalEmail(formData, rowNumber, sheetId) {
     htmlBody += '<p style="margin: 0;">Updates will go to <strong>TEST</strong> master sheet (DONOTUSE-Shared-Fairways-Directory)</p>';
     htmlBody += '</div>';
   }
+
+  // Add NEW or UPDATE indicator (HTML version)
+  if (isNewEntry !== undefined) {
+    if (isNewEntry) {
+      htmlBody += '<div style="background-color: #d4edda; border: 3px solid #28a745; padding: 20px; margin-bottom: 20px;">';
+      htmlBody += '<h2 style="color: #155724; margin-top: 0; font-size: 24px;">✨ NEW ENTRY</h2>';
+      htmlBody += '<p style="margin: 0; font-size: 16px;"><strong>This will ADD a new contact to the directory.</strong></p>';
+      htmlBody += '</div>';
+    } else {
+      htmlBody += '<div style="background-color: #d1ecf1; border: 3px solid #0c5460; padding: 20px; margin-bottom: 20px;">';
+      htmlBody += '<h2 style="color: #0c5460; margin-top: 0; font-size: 24px;">📝 EXISTING ENTRY - UPDATE</h2>';
+      htmlBody += '<p style="margin: 0; font-size: 16px;"><strong>This will UPDATE existing contact at row ' + masterRow + '</strong></p>';
+      if (matchedBy) {
+        htmlBody += '<p style="margin: 5px 0 0 0;">Matched by: <strong>' + matchedBy + '</strong></p>';
+      }
+      if (existingParcel) {
+        htmlBody += '<p style="margin: 5px 0 0 0;">Existing Parcel: <code>' + existingParcel + '</code></p>';
+      }
+      if (existingAddress) {
+        htmlBody += '<p style="margin: 5px 0 0 0;">Existing Address: <code>' + existingAddress + '</code></p>';
+      }
+      htmlBody += '</div>';
+    }
+  }
+
   htmlBody += '<h2>New Contact Update Request</h2>';
+
+  // Add changes table if available (HTML version)
+  if (changes.length > 0) {
+    if (isNewEntry) {
+      const fieldCount = Object.keys(formData).filter(k => !k.startsWith('_')).length;
+      htmlBody += '<h3>📋 Form Data to be Added (' + fieldCount + ' fields)</h3>';
+      htmlBody += '<table border="1" cellpadding="8" cellspacing="0" style="border-collapse: collapse; width: 100%; margin-bottom: 20px;">';
+      htmlBody += '<tr style="background-color: #f0f0f0;"><th>Field</th><th>Value</th></tr>';
+      Object.keys(formData).forEach(function(key) {
+        if (!key.startsWith('_')) {
+          htmlBody += '<tr>';
+          htmlBody += '<td><strong>' + key + '</strong></td>';
+          htmlBody += '<td style="background-color: #e6ffe6;">' + (formData[key] || '<em>(empty)</em>') + '</td>';
+          htmlBody += '</tr>';
+        }
+      });
+      htmlBody += '</table>';
+    } else {
+      htmlBody += '<h3>📋 Changes to be Made (' + changes.length + ' fields)</h3>';
+      htmlBody += '<table border="1" cellpadding="8" cellspacing="0" style="border-collapse: collapse; width: 100%; margin-bottom: 20px;">';
+      htmlBody += '<tr style="background-color: #f0f0f0;"><th>Field</th><th>Old Value</th><th>New Value</th></tr>';
+      changes.forEach(function(change) {
+        htmlBody += '<tr>';
+        htmlBody += '<td><strong>' + change.field + '</strong></td>';
+        htmlBody += '<td style="background-color: #ffe6e6;">' + (change.oldValue || '<em>(empty)</em>') + '</td>';
+        htmlBody += '<td style="background-color: #e6ffe6;">' + change.newValue + '</td>';
+        htmlBody += '</tr>';
+      });
+      htmlBody += '</table>';
+    }
+  } else if (!isNewEntry && isNewEntry !== undefined) {
+    htmlBody += '<div style="background-color: #e7f3ff; border: 2px solid #0066cc; padding: 15px; margin-bottom: 20px;">';
+    htmlBody += '<h3 style="color: #0066cc; margin-top: 0;">ℹ️ NO CHANGES DETECTED</h3>';
+    htmlBody += '<p style="margin: 0;">All form values match existing master sheet data.</p>';
+    htmlBody += '</div>';
+  }
+
+  // Always show submission details
   htmlBody += '<h3>Submission Details</h3>';
   htmlBody += '<table border="1" cellpadding="8" cellspacing="0" style="border-collapse: collapse;">';
 
   Object.keys(formData).forEach(key => {
-    htmlBody += `<tr><td><strong>${key}</strong></td><td>${formData[key]}</td></tr>`;
+    if (!key.startsWith('_')) {
+      htmlBody += `<tr><td><strong>${key}</strong></td><td>${formData[key]}</td></tr>`;
+    }
   });
 
   htmlBody += '</table>';
@@ -147,10 +347,21 @@ function sendApprovalEmail(formData, rowNumber, sheetId) {
   htmlBody += '<a href="' + rejectUrl + '" style="background-color: #f44336; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">✗ REJECT</a></p>';
   htmlBody += '<p><em>Click the appropriate button above to approve or reject this request.</em></p>';
 
-  // Send email
-  const emailSubject = CONFIG.TEST_MODE
-    ? '[TEST CONTACT UPDATE] New Request - Action Required'
-    : CONFIG.emailSubject;
+  // Build email subject with address
+  const address = formData['Unit Address'] || formData['Address'] || 'Unknown Address';
+  let emailSubject;
+
+  if (isNewEntry !== undefined) {
+    const action = isNewEntry ? 'Add' : 'Modify';
+    emailSubject = CONFIG.TEST_MODE
+      ? `[TEST CONTACT UPDATE] ${action} - ${address}`
+      : `[CONTACT UPDATE] ${action} - ${address}`;
+  } else {
+    // Fallback if metadata not available
+    emailSubject = CONFIG.TEST_MODE
+      ? '[TEST CONTACT UPDATE] New Request - Action Required'
+      : CONFIG.emailSubject;
+  }
 
   MailApp.sendEmail({
     to: CONFIG.adminEmail,
@@ -243,8 +454,36 @@ function doGet(e) {
       // Update status in form responses sheet
       updateFormResponseStatus(sheet, row, 'Approved', userEmail);
 
+      // Map form data and check if record exists
+      const mappedData = mapFieldsToMaster(formData);
+
+      // Parse address components
+      const rawAddress = mappedData['Address'] || '';
+      if (rawAddress) {
+        const addressParts = parseAddress(rawAddress);
+        mappedData['ST #'] = addressParts.stNumber.toUpperCase();
+        mappedData['ST Name'] = addressParts.stName.toUpperCase();
+        mappedData['ST Type'] = addressParts.stType.toUpperCase();
+        if (addressParts.stNumber && addressParts.stName && addressParts.stType) {
+          mappedData['Address'] = (addressParts.stNumber + ' ' + addressParts.stName + ' ' + addressParts.stType).toUpperCase();
+        } else {
+          mappedData['Address'] = rawAddress.toUpperCase();
+        }
+      }
+
+      // Check if record exists to determine action type
+      const recordInfo = locateRecordInMaster(mappedData);
+      const actionType = recordInfo.found ? 'Modified' : 'Added';
+
+      // Get name and address for logging
+      const fullName = (mappedData['First Name'] || '') + ' ' + (mappedData['Last Name'] || '');
+      const address = mappedData['Address'] || 'Unknown Address';
+
       // Add to master sheet
       addToMasterSheet(formData);
+
+      // Log to sheetLogs
+      logToSheetLogs(actionType, fullName.trim(), address, userEmail);
 
       return HtmlService.createHtmlOutput(
         '<h2>✓ Request Approved</h2>' +
@@ -387,7 +626,11 @@ function applyFieldFormatting(data) {
  * Only updates fields that have changed
  */
 function updateMasterSheetRow(masterSheet, rowNumber, newData, existingData) {
+  let protectionSettings = [];
   try {
+    // Remove protection before making changes
+    protectionSettings = removeProtection(masterSheet);
+
     const headers = masterSheet.getRange(1, 1, 1, masterSheet.getLastColumn()).getValues()[0];
 
     // Apply formatting rules to newData before comparison
@@ -440,10 +683,17 @@ function updateMasterSheetRow(masterSheet, rowNumber, newData, existingData) {
       Logger.log('No changes detected - all fields match existing data');
     }
 
+    // Restore protection after making changes
+    restoreProtection(masterSheet, protectionSettings);
+
     return changedFields;
 
   } catch (error) {
     Logger.log('Error updating row: ' + error.toString());
+    // Restore protection even if there was an error
+    if (protectionSettings.length > 0) {
+      restoreProtection(masterSheet, protectionSettings);
+    }
     throw error;
   }
 }
@@ -452,7 +702,11 @@ function updateMasterSheetRow(masterSheet, rowNumber, newData, existingData) {
  * Adds a new row to the master sheet
  */
 function addNewMasterSheetRow(masterSheet, mappedData) {
+  let protectionSettings = [];
   try {
+    // Remove protection before making changes
+    protectionSettings = removeProtection(masterSheet);
+
     // Get headers from master sheet
     const masterHeaders = masterSheet.getRange(1, 1, 1, masterSheet.getLastColumn()).getValues()[0];
 
@@ -491,8 +745,15 @@ function addNewMasterSheetRow(masterSheet, mappedData) {
 
     Logger.log('New row added to master sheet at row ' + newRowNumber);
 
+    // Restore protection after making changes
+    restoreProtection(masterSheet, protectionSettings);
+
   } catch (error) {
     Logger.log('Error adding new row: ' + error.toString());
+    // Restore protection even if there was an error
+    if (protectionSettings.length > 0) {
+      restoreProtection(masterSheet, protectionSettings);
+    }
     throw error;
   }
 }
@@ -806,10 +1067,12 @@ function testRowEmail(rowNumber) {
     Logger.log('Mapped Data for Master Sheet (after preprocessing):');
     Logger.log(JSON.stringify(mappedData, null, 2));
 
-    // Locate record in TEST MASTER sheet using comprehensive matching logic
-    const recordInfo = locateRecordInTestMaster(mappedData);
+    // Locate record - use production or test master sheet based on TEST_MODE
+    const recordInfo = CONFIG.TEST_MODE
+      ? locateRecordInTestMaster(mappedData)
+      : locateRecordInMaster(mappedData);
 
-    Logger.log('Record Location Result in TEST master:');
+    Logger.log('Record Location Result in ' + (CONFIG.TEST_MODE ? 'TEST' : 'PRODUCTION') + ' master:');
     Logger.log(JSON.stringify(recordInfo, null, 2));
 
     // Calculate changes
@@ -833,12 +1096,13 @@ function testRowEmail(rowNumber) {
       sendApprovalEmail(mappedData, rowNumber, sheet.getSheetId());
     }
 
+    const masterType = CONFIG.TEST_MODE ? 'test master' : 'PRODUCTION master';
     let status;
     if (recordInfo.found) {
-      status = 'Email sent! Form row ' + rowNumber + ' would UPDATE test master row ' + recordInfo.row +
+      status = 'Email sent! Form row ' + rowNumber + ' would UPDATE ' + masterType + ' row ' + recordInfo.row +
                ' (matched by ' + recordInfo.matchedBy + ') with ' + changes.length + ' changes';
     } else {
-      status = 'Email sent! Form row ' + rowNumber + ' would ADD A NEW entry to test master.';
+      status = 'Email sent! Form row ' + rowNumber + ' would ADD A NEW entry to ' + masterType + '.';
     }
 
     Logger.log(status);
@@ -1466,10 +1730,15 @@ function sendTestApprovalEmail(formData, rowNumber, sheetId) {
   htmlBody += '<p><em>Click the appropriate button above to approve or reject this request.</em></p>';
   htmlBody += '<p><strong>NOTE: In TEST MODE, approval will update the TEST master sheet (DONOTUSE-Shared-Fairways-Directory).</strong></p>';
 
+  // Build email subject with address
+  const address = formData['Unit Address'] || formData['Address'] || 'Unknown Address';
+  const action = isNewEntry ? 'Add' : 'Modify';
+  const emailSubject = `[TEST CONTACT UPDATE] ${action} - ${address}`;
+
   // Send email
   MailApp.sendEmail({
     to: TEST_CONFIG.testEmail,
-    subject: '[TEST CONTACT UPDATE] New Request - Action Required',
+    subject: emailSubject,
     body: emailBody,
     htmlBody: htmlBody
   });
