@@ -816,7 +816,7 @@ function testRowEmail(rowNumber) {
     const changes = calculateChanges(mappedData, recordInfo.existingData);
 
     // Add metadata about the test
-    mappedData['_TEST_MODE'] = true;
+    mappedData['_TEST_MODE'] = CONFIG.TEST_MODE;
     mappedData['_RECORD_FOUND'] = recordInfo.found;
     mappedData['_IS_NEW_ENTRY'] = !recordInfo.found;
     mappedData['_MATCHED_BY'] = recordInfo.matchedBy;
@@ -826,8 +826,12 @@ function testRowEmail(rowNumber) {
     mappedData['_CHANGES'] = changes;
     mappedData['_FORM_ROW'] = rowNumber;
 
-    // Send test approval email with changes table
-    sendTestApprovalEmail(mappedData, rowNumber, sheet.getSheetId());
+    // Send email - use real production email if TEST_MODE is false, otherwise use test email
+    if (CONFIG.TEST_MODE) {
+      sendTestApprovalEmail(mappedData, rowNumber, sheet.getSheetId());
+    } else {
+      sendApprovalEmail(mappedData, rowNumber, sheet.getSheetId());
+    }
 
     let status;
     if (recordInfo.found) {
